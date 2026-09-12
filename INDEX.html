@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Professors of Practice — Weekly Delivery Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#1A1F2E;
+    --ink-soft:#5C6478;
+    --ink-faint:#93991A9;
+    --ink-faint:#9298A8;
+
+    --navy-950:#0A1226;
+    --navy-900:#0F1B36;
+    --navy-800:#16264A;
+    --navy-700:#1F3260;
+
+    --maroon:#7A2331;
+    --maroon-tint:#F7E7E5;
+
+    --gold:#D4A94A;
+    --gold-bright:#F2C766;
+    --gold-dark:#9A7423;
+    --gold-tint:#FBF0D6;
+
+    --cream:#FBF7EE;
+    --cream-deep:#F3ECDA;
+    --paper:#FFFFFF;
+    --rule:#E7DFC9;
+
+    --success:#2F6B4F;
+    --success-tint:#E1F0E6;
+    --danger:#A03B36;
+    --danger-tint:#F6E4E2;
+
+    --radius:8px;
+    --radius-sm:5px;
+    --shadow-sm: 0 1px 2px rgba(15,27,54,0.06);
+    --shadow-md: 0 8px 24px rgba(15,27,54,0.08);
+    --shadow-lg: 0 20px 55px rgba(10,18,38,0.35);
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0;
+    background:
+      radial-gradient(1100px 500px at 15% -10%, rgba(212,169,74,0.10), transparent 60%),
+      var(--cream);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection { background: var(--gold-tint); }
+
+  /* ---------- Header ---------- */
+  .header {
+    background:
+      radial-gradient(900px 380px at 85% -20%, rgba(212,169,74,0.18), transparent 60%),
+      linear-gradient(135deg, var(--navy-950) 0%, var(--navy-900) 55%, var(--navy-800) 100%);
+    color:#fff;
+    padding:42px 36px 32px;
+    position:relative;
+    overflow:hidden;
+    border-bottom: 1px solid rgba(212,169,74,0.35);
+  }
+  .header::before {
+    content:"";
+    position:absolute; inset:0;
+    background-image: repeating-linear-gradient(115deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 42px);
+    pointer-events:none;
+  }
+  .header::after {
+    content:"";
+    position:absolute; left:0; right:0; bottom:0; height:3px;
+    background:linear-gradient(90deg, transparent, var(--gold-bright) 25%, var(--gold) 50%, var(--gold-bright) 75%, transparent);
+  }
+  .header-top {
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    position:relative; z-index:1;
+  }
+  .header-crest {
+    display:flex; align-items:center; gap:10px;
+  }
+  .crest-mark {
+    width:38px; height:38px; border-radius:50%;
+    border:1.5px solid var(--gold);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Playfair Display', serif; font-weight:700; font-style:italic;
+    color:var(--gold-bright); font-size:15px; flex-shrink:0;
+    background: rgba(212,169,74,0.08);
+  }
+  .header-eyebrow { font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--gold-bright); margin:0; line-height:1.3; }
+  .header-eyebrow .sub { display:block; color:#B7BFD4; font-size:10.5px; letter-spacing:.1em; margin-top:2px; }
+
+  .header h1 {
+    font-family:'Playfair Display',serif; font-weight:600; font-size:clamp(24px,3.6vw,36px);
+    margin:16px 0 8px; letter-spacing:-0.01em; position:relative; z-index:1;
+  }
+  .header p { margin:0; color:#B7BFD4; font-size:14px; max-width:620px; line-height:1.6; position:relative; z-index:1; }
+
+  .shared-note {
+    display:inline-flex; align-items:center; gap:7px; margin-top:16px; position:relative; z-index:1;
+    background: rgba(212,169,74,0.12); border:1px solid rgba(212,169,74,0.45); color:var(--gold-bright);
+    font-size:11.5px; font-family:'IBM Plex Mono',monospace; padding:7px 14px; border-radius:20px;
+    letter-spacing:.02em;
+  }
+
+  .container { max-width:1220px; margin:0 auto; padding:30px 36px 90px; }
+
+  /* ---------- Summary strip ---------- */
+  .top-summary { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:28px; }
+  .stat {
+    background:var(--paper); border:1px solid var(--rule); border-radius:var(--radius);
+    padding:20px 22px; box-shadow:var(--shadow-sm); position:relative; overflow:hidden;
+  }
+  .stat::before {
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--gold);
+  }
+  .stat-num { font-family:'Playfair Display',serif; font-size:28px; font-weight:700; color:var(--navy-900); line-height:1; }
+  .stat-label { margin-top:7px; font-size:11.5px; color:var(--ink-soft); font-weight:500; letter-spacing:.02em; }
+
+  .layout { display:grid; grid-template-columns:370px 1fr; gap:26px; align-items:start; }
+  @media (max-width:920px){ .layout{ grid-template-columns:1fr; } }
+
+  .card { background:var(--paper); border:1px solid var(--rule); border-radius:var(--radius); box-shadow:var(--shadow-sm); }
+
+  /* ---------- Entry form ---------- */
+  .form-card { padding:26px; position:sticky; top:22px; }
+  .form-title { font-family:'Playfair Display',serif; font-weight:600; font-size:20px; margin:0 0 4px; color:var(--navy-900); }
+  .form-sub { font-size:12.5px; color:var(--ink-soft); margin:0 0 20px; }
+
+  .field { margin-bottom:15px; }
+  .field label { display:block; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-dark); margin-bottom:6px; }
+  .field input, .field select, .field textarea {
+    width:100%; padding:10px 12px; border:1px solid var(--rule); border-radius:var(--radius-sm);
+    background:var(--cream); font-family:'Inter',sans-serif; font-size:13.5px; color:var(--ink);
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .field textarea { resize:vertical; min-height:54px; }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    outline:none; border-color:var(--gold-dark); background:var(--paper);
+    box-shadow: 0 0 0 3px rgba(154,116,35,0.12);
+  }
+  .field input[readonly] { background:var(--gold-tint); color:var(--gold-dark); font-weight:700; cursor:default; border-color:var(--gold); }
+  .row-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .auto-block {
+    background: linear-gradient(135deg, var(--navy-900), var(--navy-800));
+    border:1px solid var(--navy-700);
+    border-radius:var(--radius-sm);
+    padding:12px 14px;
+    margin-bottom:15px;
+    font-size:12.5px;
+  }
+  .auto-block .al { color:var(--gold-bright); text-transform:uppercase; letter-spacing:.06em; font-size:10px; font-weight:700; }
+  .auto-block .av { color:#EDEFF6; font-weight:500; margin-top:4px; line-height:1.4; }
+
+  .mode-toggle { display:flex; gap:8px; }
+  .mode-toggle button {
+    flex:1; padding:10px 8px; border:1px solid var(--rule); background:var(--cream); border-radius:var(--radius-sm);
+    font-size:13px; font-family:'Inter',sans-serif; font-weight:600; cursor:pointer; color:var(--ink-soft);
+    transition: all .15s ease;
+  }
+  .mode-toggle button.active { background:var(--navy-900); border-color:var(--navy-900); color:var(--gold-bright); }
+
+  .btn-primary {
+    width:100%; padding:12px; background:linear-gradient(135deg, var(--maroon), #8C2A3A); color:#FFF3EC; border:none; border-radius:var(--radius-sm);
+    font-weight:700; font-size:14px; cursor:pointer; margin-top:6px; letter-spacing:.01em;
+    transition: filter .15s ease, transform .1s ease; box-shadow: var(--shadow-sm);
+  }
+  .btn-primary:hover { filter:brightness(1.08); }
+  .btn-primary:active { transform: translateY(1px); }
+  .error-text { color:var(--danger); font-size:12.5px; margin-top:8px; display:none; }
+
+  .stamp {
+    position:fixed; top:22px; right:22px; background:var(--success-tint); border:1.5px solid var(--success); color:var(--success);
+    font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    padding:9px 16px; border-radius:var(--radius-sm); transform:rotate(-3deg) scale(.9); opacity:0; pointer-events:none;
+    transition:all .25s cubic-bezier(.34,1.56,.64,1); z-index:100; box-shadow:var(--shadow-md);
+  }
+  .stamp.show { opacity:1; transform:rotate(-3deg) scale(1); }
+
+  /* ---------- Log panel ---------- */
+  .log-card { padding:0; overflow:hidden; }
+  .log-title-row {
+    padding:20px 22px; font-family:'Playfair Display',serif; font-weight:600; font-size:19px; color:var(--navy-900);
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    border-bottom:1px solid var(--rule); background: linear-gradient(180deg, var(--paper), var(--cream));
+  }
+  .log-toolbar { display:flex; gap:10px; padding:14px 22px; border-bottom:1px solid var(--rule); flex-wrap:wrap; background:var(--cream); }
+  .log-toolbar input, .log-toolbar select {
+    padding:9px 11px; border:1px solid var(--rule); border-radius:var(--radius-sm); font-size:13px; background:var(--paper);
+  }
+  .log-toolbar input:focus, .log-toolbar select:focus { outline:none; border-color:var(--gold-dark); box-shadow:0 0 0 3px rgba(154,116,35,0.12); }
+  .log-toolbar input[type="text"] { flex:1; min-width:170px; }
+
+  .btn-ghost {
+    padding:8px 14px; background:var(--gold-tint); color:var(--gold-dark); border:1px solid var(--gold);
+    border-radius:var(--radius-sm); font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+    font-family:'Inter',sans-serif; transition: all .15s ease;
+  }
+  .btn-ghost:hover { background:var(--gold); color:var(--navy-950); }
+  .btn-ghost.archive { background:var(--danger-tint); color:var(--danger); border-color:var(--danger); }
+  .btn-ghost.archive:hover { background:var(--danger); color:#fff; }
+
+  .storage-meter {
+    padding:11px 22px; border-bottom:1px solid var(--rule); font-size:11.5px; color:var(--ink-soft);
+    display:flex; align-items:center; gap:10px; background:var(--cream); font-weight:500;
+  }
+  .storage-bar { flex:1; height:6px; background:var(--rule); border-radius:4px; overflow:hidden; max-width:240px; }
+  .storage-fill { height:100%; background:linear-gradient(90deg, var(--gold-dark), var(--gold-bright)); transition:width .2s ease; }
+  .storage-fill.warn { background:linear-gradient(90deg, var(--danger), #C25A54); }
+
+  table { width:100%; border-collapse:collapse; }
+  thead th {
+    text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--navy-800);
+    font-weight:700; padding:12px 14px; border-bottom:2px solid var(--gold); background:var(--cream-deep); white-space:nowrap;
+  }
+  tbody td { padding:13px 14px; font-size:13px; border-bottom:1px solid var(--rule); vertical-align:top; }
+  tbody tr:hover { background:var(--gold-tint); }
+  tbody tr:last-child td { border-bottom:none; }
+
+  .prof-name { font-weight:700; color:var(--navy-900); }
+  .desig-tag { font-size:11px; color:var(--ink-soft); margin-top:3px; max-width:230px; line-height:1.4; }
+  .subj-cell { color:var(--gold-dark); font-weight:700; font-size:12px; }
+  .hours-num { font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--navy-800); }
+
+  .mode-badge {
+    display:inline-flex; align-items:center; justify-content:center; padding:4px 10px; border-radius:20px;
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; white-space:nowrap; letter-spacing:.02em;
+  }
+  .mode-badge.online { background:var(--gold-tint); color:var(--gold-dark); border:1px solid var(--gold); }
+  .mode-badge.offline { background:#E9ECF3; color:var(--navy-700); border:1px solid #D3D9E6; }
+
+  .cum-badge {
+    display:inline-block; background:var(--navy-900); color:var(--gold-bright); font-family:'IBM Plex Mono',monospace;
+    font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px;
+  }
+
+  .thumb {
+    width:48px; height:48px; object-fit:cover; border-radius:6px; border:2px solid var(--paper);
+    cursor:pointer; display:block; transition:transform .15s ease; box-shadow:var(--shadow-sm);
+  }
+  .thumb:hover { transform:scale(1.08); box-shadow:0 4px 14px rgba(154,116,35,0.35); }
+
+  .photo-modal {
+    display:none; position:fixed; inset:0; background:rgba(10,18,38,0.9); z-index:200;
+    align-items:center; justify-content:center; padding:30px; backdrop-filter: blur(3px);
+  }
+  .photo-modal img { max-width:90vw; max-height:88vh; border-radius:10px; box-shadow:var(--shadow-lg); border:3px solid var(--gold); }
+  .photo-modal-close {
+    position:absolute; top:24px; right:30px; background:var(--gold); border:none; border-radius:50%;
+    width:38px; height:38px; font-size:16px; cursor:pointer; color:var(--navy-950); font-weight:700;
+  }
+
+  .row-actions { display:flex; gap:6px; }
+  .icon-btn {
+    background:var(--paper); border:1px solid var(--rule); border-radius:var(--radius-sm); width:28px; height:28px;
+    cursor:pointer; font-size:12px; color:var(--ink-soft); display:flex; align-items:center; justify-content:center;
+    transition: all .15s ease;
+  }
+  .icon-btn:hover { border-color:var(--gold-dark); color:var(--gold-dark); }
+  .icon-btn.delete:hover { border-color:var(--danger); color:var(--danger); background:var(--danger-tint); }
+
+  .empty-state { padding:64px 24px; text-align:center; }
+  .empty-state .em { font-family:'Playfair Display',serif; font-style:italic; font-weight:600; font-size:21px; color:var(--navy-800); margin-bottom:8px; }
+  .empty-state p { color:var(--ink-faint); font-size:13px; max-width:320px; margin:0 auto; }
+
+  /* ---------- Cumulative summary ---------- */
+  .cum-summary { padding:0; margin-top:22px; overflow:hidden; }
+  .cum-summary-title {
+    padding:18px 22px; font-family:'Playfair Display',serif; font-weight:600; font-size:18px; color:var(--navy-900);
+    border-bottom:1px solid var(--rule); background: linear-gradient(180deg, var(--paper), var(--cream));
+  }
+  .cum-list { padding:6px 22px 20px; }
+  .cum-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--rule); font-size:13px; }
+  .cum-item:last-child { border-bottom:none; }
+  .cum-item .cn { font-weight:700; color:var(--navy-900); }
+  .cum-item .cs { color:var(--ink-soft); font-size:11.5px; margin-top:2px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div class="header-crest">
+      <div class="crest-mark">KL</div>
+      <p class="header-eyebrow">KL University · Alumni Relations
+        <span class="sub">Professors of Practice Cell</span>
+      </p>
+    </div>
+  </div>
+  <h1>Weekly Delivery Tracker</h1>
+  <p>Select a professor, log this week's topic and session date — designation and subject fill in automatically, and hours accumulate against their running total.</p>
+  <div class="shared-note">🔗 Shared register — visible to everyone using this tracker</div>
+</div>
+
+<div class="container">
+
+  <div class="top-summary" id="top-summary">
+    <div class="stat"><div class="stat-num" id="stat-sessions">—</div><div class="stat-label">Sessions logged</div></div>
+    <div class="stat"><div class="stat-num" id="stat-hours">—</div><div class="stat-label">Total hours delivered</div></div>
+    <div class="stat"><div class="stat-num" id="stat-profs">—</div><div class="stat-label">POPs active this term</div></div>
+  </div>
+
+  <div class="layout">
+
+    <!-- Entry form -->
+    <div class="card form-card">
+      <h2 class="form-title">Log this week's session</h2>
+      <p class="form-sub">Pick the professor first — details auto-fill.</p>
+
+      <div class="field">
+        <label for="f-name">Professor name</label>
+        <select id="f-name" onchange="onProfChange()">
+          <option value="">Select a professor…</option>
+        </select>
+      </div>
+
+      <div class="auto-block" id="auto-block" style="display:none;">
+        <div class="al">Designation & Location</div>
+        <div class="av" id="auto-desig">—</div>
+      </div>
+
+      <div class="field" id="subject-field" style="display:none;">
+        <label for="f-subject">Subject name</label>
+        <input type="text" id="f-subject" readonly>
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label for="f-date">Date conducted</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label for="f-hours">Hours dealt</label>
+          <input type="number" id="f-hours" min="0" step="0.5" placeholder="1.5">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-topic">Topic delivered this week</label>
+        <textarea id="f-topic" placeholder="e.g. Introduction to microservice orchestration"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="f-video">Video link (recording)</label>
+        <input type="url" id="f-video" placeholder="https://...">
+      </div>
+
+      <div class="field">
+        <label for="f-photo">Photo proof of session</label>
+        <input type="file" id="f-photo" accept="image/*" onchange="onPhotoSelect(event)">
+        <div id="photo-preview-wrap" style="display:none; margin-top:8px;">
+          <img id="photo-preview" src="" alt="Preview" style="max-width:100%; max-height:140px; border-radius:6px; border:1px solid var(--rule); display:block;">
+          <button type="button" class="icon-btn" onclick="clearPhoto()" style="margin-top:6px;" title="Remove photo">✕ Remove</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Mode</label>
+        <div class="mode-toggle">
+          <button type="button" id="mode-offline" class="active" onclick="setMode('offline')">Offline</button>
+          <button type="button" id="mode-online" onclick="setMode('online')">Online</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="f-notes">Notes (optional)</label>
+        <input type="text" id="f-notes" placeholder="Attendance, remarks, etc.">
+      </div>
+
+      <button class="btn-primary" onclick="submitEntry()">Log session</button>
+      <div class="error-text" id="error-text">Please select a professor, date, hours and topic.</div>
+    </div>
+
+    <!-- Right column -->
+    <div>
+      <div class="card log-card">
+        <div class="log-title-row">
+          Weekly Register
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn-ghost" onclick="exportExcel()">⬇ Download Excel</button>
+            <button class="btn-ghost archive" onclick="archiveAndClear()">🗄 Archive & Clear</button>
+          </div>
+        </div>
+        <div class="log-toolbar">
+          <input type="text" id="search-box" placeholder="Search professor, subject, or topic..." oninput="renderLog()">
+          <select id="filter-mode" onchange="renderLog()">
+            <option value="">All modes</option>
+            <option value="online">Online only</option>
+            <option value="offline">Offline only</option>
+          </select>
+          <select id="sort-order" onchange="renderLog()">
+            <option value="desc">Newest first</option>
+            <option value="asc">Oldest first</option>
+          </select>
+        </div>
+        <div class="storage-meter">
+          <span>Shared storage used</span>
+          <div class="storage-bar"><div class="storage-fill" id="storage-fill" style="width:0%;"></div></div>
+          <span id="storage-label">0%</span>
+        </div>
+        <div id="log-body">
+          <div style="padding:20px; font-size:13px; color:var(--ink-soft);">Loading register…</div>
+        </div>
+      </div>
+
+      <div class="card cum-summary">
+        <div class="cum-summary-title">Cumulative Hours So Far</div>
+        <div class="cum-list" id="cum-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="stamp" id="stamp">✓ Logged</div>
+
+<div class="photo-modal" id="photo-modal" onclick="closePhotoModal()">
+  <button class="photo-modal-close" onclick="event.stopPropagation(); closePhotoModal()">✕</button>
+  <img id="photo-modal-img" src="" alt="Session proof" onclick="event.stopPropagation()">
+</div>
+
+<script>
+  // ---- Roster: 34 Professors of Practice ----
+  const roster = [
+    { name:"Mr Kotesh Mukkamala", desig:"Data Engineer, Meta — Menlo Park, California, USA", subject:"AI" },
+    { name:"Mr Kiran Palla", desig:"IT Executive & Senior Advisor to ACIO IT, Internal Revenue Service, USA", subject:"AI" },
+    { name:"Mr Fiazuddin Shaik", desig:"Principal Application Engineer, Capital One — USA", subject:"Fundamentals of Big Data" },
+    { name:"Mrs Sreedevi Ande", desig:"Senior Delivery Project Manager, Microsoft — Hyderabad", subject:"Project Delivery" },
+    { name:"Dr Vijay Suman Pasupuleti", desig:"Senior Staff R&D Engineer, Synopsys — Bangalore", subject:"Theory of Computation" },
+    { name:"Mr Ramalingeshwar Reddy Chirra", desig:"Product Cost Finance Manager – Supply Chain & Logistics, Lucid Motors — Saudi Arabia", subject:"Data Analytics & Visualization" },
+    { name:"Mr CH Rama Krishna", desig:"Technical Manager, AMD — Bangalore", subject:"Project Delivery" },
+    { name:"Mr Srikanth Annamareddy", desig:"Operations Supervisor, Costco Wholesale UK — Coventry, United Kingdom", subject:"Advanced Embedded Systems" },
+    { name:"Mr Rohit Ponnapalli", desig:"Chief Information Security Officer (CISO), Envoy Global — Hyderabad", subject:"Security Governance & Management" },
+    { name:"Mr Sidharthan Rajendran", desig:"Senior Software Engineer, Microsoft — Bangalore", subject:"SOA Programming & Microservices" },
+    { name:"Mr Ramesh P", desig:"Founder & CEO, PGK Technologies — Hyderabad", subject:"Project Delivery" },
+    { name:"Mrs Padmaja Mitravinda Kolachalam", desig:"Principal Consultant, BI, Data & Analytics, Infosys — Bangalore", subject:"Project Delivery" },
+    { name:"Mr Abhinav Garg", desig:"Project Manager, KPMG — Delhi", subject:"Project Delivery" },
+    { name:"Mr Raj Cheemakurthi", desig:"COO PEAC Poland; Managing Director & Board Member — Warsaw, Poland", subject:"Project Delivery" },
+    { name:"Dr Sree Ranjani Rajendran", desig:"Assistant Professor, EE & CS Dept., Florida Atlantic University — Boca Raton, Florida, USA", subject:"Analog VLSI Design" },
+    { name:"Mr Safiuddin Khaja", desig:"Cloud Engineer, AI — Google, Hyderabad", subject:"Project Delivery" },
+    { name:"Mrs Hema Jampala", desig:"Senior Engineering Manager, Intuit — Canada", subject:"Deep Learning" },
+    { name:"Mr Ram Morla", desig:"Chief Data Strategist, CDO Advisory – Data Practice Leader for UK & Ireland Insurance — United Kingdom", subject:"Project Delivery" },
+    { name:"Mr Devi Prasad", desig:"Enterprise Architect – Telecom, TCS — India & United Kingdom", subject:"Cloud Infrastructure Engineering" },
+    { name:"Mrs Bindu Budha", desig:"DevOps & Automation Engineer, IBM UK Ltd — United Kingdom", subject:"Project Delivery" },
+    { name:"Mr Lalith Kumar D", desig:"Data Scientist & Cloud Engineer, AI — Google, Bangalore", subject:"Data Science" },
+    { name:"Mr Rama Krishna Prasad Vemana", desig:"Vice President, Morgan Stanley — Bangalore", subject:"OOPs Through Java" },
+    { name:"Mr Uday Mannam", desig:"Senior Product Manager, Azure Data Products, Microsoft — Hyderabad", subject:"Data Analytics & Visualization" },
+    { name:"Mr Sai Satish D", desig:"President, AIMER Society (Indian Servers) — Vijayawada", subject:"Cryptanalysis & Cyber Defence" },
+    { name:"Mr Aditya Dua", desig:"Professional Services Manager, MongoDB — Delhi", subject:"Project Delivery" },
+    { name:"Mr Sasi Kumar", desig:"Senior Manager II, Harman International — Dubai", subject:"AI and Controls for Autonomous Future Transport" },
+    { name:"Mr Rajanikanth T", desig:"Director & Co-Founder, PGK Technologies — Hyderabad", subject:"Project Delivery" },
+    { name:"Mr Nanda Kishore", desig:"Senior Advisor, Data Science, Dell Technologies — Hyderabad", subject:"Generative Adversarial Networks" },
+    { name:"Dr B. B. M Krishna Kanth", desig:"Senior Technical Manager (Gen AI), HCLTech — Hyderabad", subject:"Machine Learning Operations, Natural Language Processing" },
+    { name:"Mr Rajaram Kankipati", desig:"Senior Data Scientist, Freshworks — Bangalore, India", subject:"Machine Learning Operations, Data Science" },
+    { name:"Dr Ramesh Babu Kanneganti", desig:"Chairman, National Security Studies Experts Committee, UGC, Govt. of India — Hyderabad", subject:"Project Delivery" },
+    { name:"Mr Prabhakar Reddy Kolanu", desig:"Senior Vice President – Enterprise Delivery, SimpleWorks (Simple CRM) — Hyderabad", subject:"Information Assurance & Security" },
+    { name:"Mr Sandeep N", desig:"Strategic Management, MBA — Guntur", subject:"Strategic Management (MBA)" },
+    { name:"Dr Chandrashekar Reddy", desig:"Data Engineering for Financial Systems — Hyderabad", subject:"Data Engineering for Financial Systems" }
+  ];
+
+  let entries = [];
+  let currentMode = 'offline';
+  let currentPhoto = null;
+  const STORAGE_KEY = 'pop-weekly-entries';
+
+  function todayStr() { return new Date().toISOString().split('T')[0]; }
+  document.getElementById('f-date').value = todayStr();
+
+  function populateDropdown() {
+    const sel = document.getElementById('f-name');
+    roster.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = p.name;
+      sel.appendChild(opt);
+    });
+  }
+  populateDropdown();
+
+  function onProfChange() {
+    const name = document.getElementById('f-name').value;
+    const block = document.getElementById('auto-block');
+    const subjField = document.getElementById('subject-field');
+    if (!name) { block.style.display = 'none'; subjField.style.display = 'none'; return; }
+    const p = roster.find(r => r.name === name);
+    if (p) {
+      document.getElementById('auto-desig').textContent = p.desig;
+      document.getElementById('f-subject').value = p.subject;
+      block.style.display = 'block';
+      subjField.style.display = 'block';
+    }
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('mode-offline').classList.toggle('active', mode === 'offline');
+    document.getElementById('mode-online').classList.toggle('active', mode === 'online');
+  }
+
+  function onPhotoSelect(evt) {
+    const file = evt.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const maxW = 900;
+        const scale = Math.min(1, maxW / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale;
+        canvas.height = img.height * scale;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        currentPhoto = canvas.toDataURL('image/jpeg', 0.7);
+        document.getElementById('photo-preview').src = currentPhoto;
+        document.getElementById('photo-preview-wrap').style.display = 'block';
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function clearPhoto() {
+    currentPhoto = null;
+    document.getElementById('f-photo').value = '';
+    document.getElementById('photo-preview-wrap').style.display = 'none';
+    document.getElementById('photo-preview').src = '';
+  }
+
+  function openPhotoModal(src) {
+    const modal = document.getElementById('photo-modal');
+    document.getElementById('photo-modal-img').src = src;
+    modal.style.display = 'flex';
+  }
+
+  function openPhotoModalById(id) {
+    const e = entries.find(x => x.id === id);
+    if (e && e.photo) openPhotoModal(e.photo);
+  }
+
+  function closePhotoModal() {
+    document.getElementById('photo-modal').style.display = 'none';
+  }
+
+  async function loadEntries() {
+    try {
+      const result = await window.storage.get(STORAGE_KEY, true);
+      entries = result && result.value ? JSON.parse(result.value) : [];
+    } catch (e) { entries = []; }
+    renderLog();
+    renderSummary();
+    updateStorageMeter();
+  }
+
+  async function saveEntries() {
+    try { await window.storage.set(STORAGE_KEY, JSON.stringify(entries), true); }
+    catch (e) { console.error('Failed to save', e); }
+    updateStorageMeter();
+  }
+
+  function updateStorageMeter() {
+    const bytes = new Blob([JSON.stringify(entries)]).size;
+    const limitBytes = 5 * 1024 * 1024;
+    const pct = Math.min(100, (bytes / limitBytes) * 100);
+    const fill = document.getElementById('storage-fill');
+    const label = document.getElementById('storage-label');
+    fill.style.width = pct.toFixed(1) + '%';
+    fill.classList.toggle('warn', pct > 75);
+    label.textContent = pct.toFixed(1) + '% (' + (bytes / 1024 / 1024).toFixed(2) + ' MB of 5 MB)';
+  }
+
+  function showStamp() {
+    const s = document.getElementById('stamp');
+    s.classList.add('show');
+    setTimeout(() => s.classList.remove('show'), 1300);
+  }
+
+  function submitEntry() {
+    const name = document.getElementById('f-name').value;
+    const date = document.getElementById('f-date').value;
+    const hours = parseFloat(document.getElementById('f-hours').value);
+    const topic = document.getElementById('f-topic').value.trim();
+    const video = document.getElementById('f-video').value.trim();
+    const notes = document.getElementById('f-notes').value.trim();
+    const errorEl = document.getElementById('error-text');
+
+    if (!name || !date || isNaN(hours) || !topic) {
+      errorEl.style.display = 'block';
+      return;
+    }
+    errorEl.style.display = 'none';
+
+    const p = roster.find(r => r.name === name);
+    const entry = {
+      id: 'e-' + Date.now() + '-' + Math.random().toString(36).slice(2,7),
+      name, desig: p.desig, subject: p.subject,
+      date, hours, topic, notes, video, photo: currentPhoto, mode: currentMode, loggedAt: Date.now()
+    };
+    entries.push(entry);
+    saveEntries();
+    renderLog();
+    renderSummary();
+    showStamp();
+
+    document.getElementById('f-hours').value = '';
+    document.getElementById('f-topic').value = '';
+    document.getElementById('f-video').value = '';
+    document.getElementById('f-notes').value = '';
+    clearPhoto();
+    document.getElementById('f-date').value = todayStr();
+    setMode('offline');
+  }
+
+  function deleteEntry(id) {
+    entries = entries.filter(e => e.id !== id);
+    saveEntries();
+    renderLog();
+    renderSummary();
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr + 'T00:00:00');
+    return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+  }
+
+  function cumulativeUpTo(name, loggedAt) {
+    return entries
+      .filter(e => e.name === name && e.loggedAt <= loggedAt)
+      .reduce((sum, e) => sum + (parseFloat(e.hours) || 0), 0);
+  }
+
+  function exportExcel() {
+    if (entries.length === 0) {
+      alert('No sessions logged yet — nothing to export.');
+      return;
+    }
+    const sorted = [...entries].sort((a,b) => new Date(a.date) - new Date(b.date));
+
+    const registerData = sorted.map(e => ({
+      'Professor': e.name,
+      'Designation & Location': e.desig,
+      'Subject Mapped': e.subject,
+      'Topic Delivered': e.topic,
+      'Video Link': e.video || '',
+      'Date Conducted': formatDate(e.date),
+      'Mode': (e.mode === 'online') ? 'Online' : 'Offline',
+      'Hours Dealt': e.hours,
+      'Photo Proof Attached': e.photo ? 'Yes' : 'No',
+      'Cumulative Hours (as of this session)': cumulativeUpTo(e.name, e.loggedAt),
+      'Notes': e.notes || ''
+    }));
+
+    const totals = {};
+    entries.forEach(e => { totals[e.name] = (totals[e.name] || 0) + (parseFloat(e.hours) || 0); });
+    const summaryData = Object.keys(totals).sort((a,b) => totals[b]-totals[a]).map(n => {
+      const p = roster.find(r => r.name === n);
+      const sessCount = entries.filter(e => e.name === n).length;
+      return {
+        'Professor': n,
+        'Subject Mapped': p ? p.subject : '',
+        'Designation & Location': p ? p.desig : '',
+        'Sessions Logged': sessCount,
+        'Total Hours Dealt So Far': totals[n]
+      };
+    });
+
+    const wb = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.json_to_sheet(registerData);
+    const ws2 = XLSX.utils.json_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(wb, ws1, 'Weekly Register');
+    XLSX.utils.book_append_sheet(wb, ws2, 'Cumulative Summary');
+
+    const dateTag = new Date().toISOString().split('T')[0];
+    XLSX.writeFile(wb, `POP_Weekly_Delivery_Tracker_${dateTag}.xlsx`);
+  }
+
+  async function archiveAndClear() {
+    if (entries.length === 0) {
+      alert('No sessions logged yet — nothing to archive.');
+      return;
+    }
+    const confirmed = confirm(
+      `This will download an Excel copy of all ${entries.length} session(s), then permanently clear the shared register for everyone. This cannot be undone. Continue?`
+    );
+    if (!confirmed) return;
+
+    exportExcel();
+
+    entries = [];
+    await saveEntries();
+    renderLog();
+    renderSummary();
+    alert('Register archived to Excel and cleared. The shared tracker is now empty and ready for the next term.');
+  }
+
+  function renderSummary() {
+    const totalSessions = entries.length;
+    const totalHours = entries.reduce((s,e) => s + (parseFloat(e.hours)||0), 0);
+    const profsActive = new Set(entries.map(e => e.name)).size;
+    document.getElementById('stat-sessions').textContent = totalSessions;
+    document.getElementById('stat-hours').textContent = totalHours % 1 === 0 ? totalHours : totalHours.toFixed(1);
+    document.getElementById('stat-profs').textContent = profsActive;
+
+    const totals = {};
+    entries.forEach(e => { totals[e.name] = (totals[e.name] || 0) + (parseFloat(e.hours)||0); });
+    const cumList = document.getElementById('cum-list');
+    const names = Object.keys(totals).sort((a,b) => totals[b] - totals[a]);
+    if (names.length === 0) {
+      cumList.innerHTML = `<p style="color:var(--ink-faint); font-size:13px; margin:10px 0 4px;">No sessions logged yet.</p>`;
+    } else {
+      cumList.innerHTML = names.map(n => {
+        const p = roster.find(r => r.name === n);
+        return `<div class="cum-item">
+          <div>
+            <div class="cn">${escapeHtml(n)}</div>
+            <div class="cs">${p ? escapeHtml(p.subject) : ''}</div>
+          </div>
+          <span class="cum-badge">${totals[n] % 1 === 0 ? totals[n] : totals[n].toFixed(1)} hrs</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  function renderLog() {
+    const search = document.getElementById('search-box').value.toLowerCase();
+    const modeFilter = document.getElementById('filter-mode').value;
+    const sortOrder = document.getElementById('sort-order').value;
+
+    let filtered = entries.filter(e => {
+      const matchesSearch = !search ||
+        e.name.toLowerCase().includes(search) ||
+        e.subject.toLowerCase().includes(search) ||
+        e.topic.toLowerCase().includes(search);
+      const matchesMode = !modeFilter || (e.mode || 'offline') === modeFilter;
+      return matchesSearch && matchesMode;
+    });
+
+    filtered.sort((a,b) => {
+      const cmp = new Date(a.date) - new Date(b.date);
+      return sortOrder === 'desc' ? -cmp : cmp;
+    });
+
+    const logBody = document.getElementById('log-body');
+
+    if (entries.length === 0) {
+      logBody.innerHTML = `<div class="empty-state"><div class="em">The register is empty</div><p>Log the first weekly session using the form to start building the record.</p></div>`;
+      return;
+    }
+    if (filtered.length === 0) {
+      logBody.innerHTML = `<div class="empty-state"><div class="em">No matches</div><p>Try a different search term.</p></div>`;
+      return;
+    }
+
+    const rows = filtered.map(e => `
+      <tr>
+        <td>
+          <div class="prof-name">${escapeHtml(e.name)}</div>
+          <div class="desig-tag">${escapeHtml(e.desig)}</div>
+        </td>
+        <td class="subj-cell">${escapeHtml(e.subject)}</td>
+        <td>${escapeHtml(e.topic)}${e.video ? `<div class="desig-tag"><a href="${escapeHtml(e.video)}" target="_blank" rel="noopener noreferrer" style="color:var(--gold-dark); font-weight:600;">▶ Watch recording</a></div>` : ''}${e.notes ? `<div class="desig-tag">${escapeHtml(e.notes)}</div>` : ''}</td>
+        <td>${formatDate(e.date)}</td>
+        <td><span class="mode-badge ${e.mode || 'offline'}">${(e.mode === 'online') ? 'Online' : 'Offline'}</span></td>
+        <td><span class="hours-num">${e.hours}</span> hr</td>
+        <td>${e.photo ? `<img src="${e.photo}" alt="Session proof" class="thumb" onclick="openPhotoModalById('${e.id}')">` : '<span class="desig-tag">—</span>'}</td>
+        <td><span class="cum-badge">${(function(){ const c = cumulativeUpTo(e.name, e.loggedAt); return c % 1 === 0 ? c : c.toFixed(1); })()} hrs</span></td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn delete" onclick="deleteEntry('${e.id}')" title="Delete">🗑</button>
+          </div>
+        </td>
+      </tr>`).join('');
+
+    logBody.innerHTML = `
+      <table>
+        <thead>
+          <tr>
+            <th>Professor</th>
+            <th>Subject Mapped</th>
+            <th>Topic Delivered</th>
+            <th>Date Conducted</th>
+            <th>Mode</th>
+            <th>Hours</th>
+            <th>Photo Proof</th>
+            <th>Cumulative So Far</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  loadEntries();
+</script>
+
+</body>
+</html>
